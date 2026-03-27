@@ -1,12 +1,6 @@
-import {
-  Modal,
-  Platform,
-  Pressable,
-  Text,
-  View,
-} from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
+import { Modal, Platform, Pressable, Text, View } from "react-native";
 
 export type CurrencyUnit = "USD" | "MYR";
 export type WeightUnit = "g" | "troy_oz";
@@ -177,13 +171,21 @@ export function NumberBox({
                   borderBottomColor: "#e5e5ea",
                 }}
               >
-                <Text style={{ color: "#8e8e93", fontSize: 13, fontWeight: "600" }}>
+                <Text
+                  style={{ color: "#8e8e93", fontSize: 13, fontWeight: "600" }}
+                >
                   {activeSelector === "currency"
                     ? "Select currency"
                     : "Select weight"}
                 </Text>
                 <Pressable onPress={() => setActiveSelector(null)}>
-                  <Text style={{ color: "#007aff", fontSize: 16, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: "#007aff",
+                      fontSize: 16,
+                      fontWeight: "600",
+                    }}
+                  >
                     Done
                   </Text>
                 </Pressable>
@@ -207,7 +209,9 @@ export function NumberBox({
               ) : (
                 <Picker
                   selectedValue={weightUnit}
-                  onValueChange={(next) => onWeightUnitChange(next as WeightUnit)}
+                  onValueChange={(next) =>
+                    onWeightUnitChange(next as WeightUnit)
+                  }
                 >
                   {weightOptions.map((option) => (
                     <Picker.Item
