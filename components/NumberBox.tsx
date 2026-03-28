@@ -1,6 +1,13 @@
 import { Picker } from "@react-native-picker/picker";
-import { useState } from "react";
-import { Modal, Platform, Pressable, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  Text,
+  View,
+  useColorScheme,
+} from "react-native";
 
 export type CurrencyUnit = "USD" | "MYR";
 export type WeightUnit = "g" | "troy_oz";
@@ -23,7 +30,7 @@ const currencySymbolByUnit: Record<CurrencyUnit, string> = {
 
 const weightLabelByUnit: Record<WeightUnit, string> = {
   g: "g",
-  troy_oz: "troy oz",
+  troy_oz: "ozt",
 };
 
 const currencyOptions: { value: CurrencyUnit; label: string }[] = [
@@ -35,7 +42,7 @@ const currencyOptions: { value: CurrencyUnit; label: string }[] = [
 const weightOptions: { value: WeightUnit; label: string }[] = [
   // Future weight options can be added here, e.g. kg, oz, tael
   { value: "g", label: "g" },
-  { value: "troy_oz", label: "troy oz" },
+  { value: "troy_oz", label: "ozt" },
 ];
 
 export function NumberBox({
@@ -47,18 +54,46 @@ export function NumberBox({
   onCurrencyUnitChange,
   onWeightUnitChange,
 }: NumberBoxProps) {
+  const isDark = useColorScheme() === "dark";
   const symbol = currencySymbolByUnit[currencyUnit];
   const [activeSelector, setActiveSelector] = useState<
     "currency" | "weight" | null
   >(null);
+  const blockOpenUntilRef = useRef(0);
   const isIOS = Platform.OS === "ios";
+  const colors = {
+    title: isDark ? "#9da5b5" : "#8e8e93",
+    valueText: isDark ? "#f5f5f7" : "#1c1c1e",
+    unit: isDark ? "#b6bdca" : "#48484a",
+    overlay: isDark ? "rgba(0,0,0,0.52)" : "rgba(0,0,0,0.28)",
+    iosCard: isDark ? "#171b24" : "#f7f7f7",
+    iosDivider: isDark ? "#2a3040" : "#e5e5ea",
+    androidCard: isDark ? "#171b24" : "#ffffff",
+    rowDivider: isDark ? "#2a3040" : "#efeff4",
+    rowSelectedBg: isDark ? "#252c3a" : "#f3f4f8",
+    rowBg: isDark ? "#171b24" : "#ffffff",
+    rowText: isDark ? "#f5f5f7" : "#1c1c1e",
+    accent: isDark ? "#78a9ff" : "#007aff",
+  };
 
   const openCurrencySelector = () => {
+    if (Date.now() < blockOpenUntilRef.current) {
+      return;
+    }
     setActiveSelector("currency");
   };
 
   const openWeightSelector = () => {
+    if (Date.now() < blockOpenUntilRef.current) {
+      return;
+    }
     setActiveSelector("weight");
+  };
+
+  const closeSelector = () => {
+    // Prevent the close tap from propagating to underlying triggers while fade animation ends.
+    blockOpenUntilRef.current = Date.now() + 300;
+    setActiveSelector(null);
   };
 
   return (
@@ -73,7 +108,7 @@ export function NumberBox({
       <Text
         style={{
           fontSize: 13,
-          color: "#8e8e93",
+          color: colors.title,
           marginBottom: 4,
           fontWeight: "500",
         }}
@@ -93,7 +128,7 @@ export function NumberBox({
             style={{
               fontSize: 44,
               fontWeight: "700",
-              color: "#1c1c1e",
+              color: colors.valueText,
               letterSpacing: -1,
             }}
           >
@@ -106,7 +141,7 @@ export function NumberBox({
                 style={{
                   fontSize: 44,
                   fontWeight: "700",
-                  color: "#1c1c1e",
+                  color: colors.valueText,
                   letterSpacing: -1,
                 }}
               >
@@ -119,7 +154,7 @@ export function NumberBox({
                 style={{
                   fontSize: 24,
                   fontWeight: "600",
-                  color: "#48484a",
+                  color: colors.unit,
                   marginBottom: 6,
                   marginLeft: 6,
                 }}
@@ -135,17 +170,17 @@ export function NumberBox({
         transparent
         animationType="fade"
         visible={activeSelector !== null}
-        onRequestClose={() => setActiveSelector(null)}
+        onRequestClose={closeSelector}
       >
         <Pressable
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.28)",
+            backgroundColor: colors.overlay,
             justifyContent: "center",
             alignItems: "center",
             paddingHorizontal: 24,
           }}
-          onPress={() => setActiveSelector(null)}
+          onPress={closeSelector}
         >
           {isIOS ? (
             <Pressable
@@ -153,7 +188,7 @@ export function NumberBox({
                 width: "100%",
                 maxWidth: 420,
                 borderRadius: 14,
-                backgroundColor: "#f7f7f7",
+                backgroundColor: colors.iosCard,
                 overflow: "hidden",
               }}
               onPress={() => {
@@ -168,20 +203,24 @@ export function NumberBox({
                   justifyContent: "space-between",
                   alignItems: "center",
                   borderBottomWidth: 1,
-                  borderBottomColor: "#e5e5ea",
+                  borderBottomColor: colors.iosDivider,
                 }}
               >
                 <Text
-                  style={{ color: "#8e8e93", fontSize: 13, fontWeight: "600" }}
+                  style={{
+                    color: colors.title,
+                    fontSize: 13,
+                    fontWeight: "600",
+                  }}
                 >
                   {activeSelector === "currency"
                     ? "Select currency"
                     : "Select weight"}
                 </Text>
-                <Pressable onPress={() => setActiveSelector(null)}>
+                <Pressable onPress={closeSelector}>
                   <Text
                     style={{
-                      color: "#007aff",
+                      color: colors.accent,
                       fontSize: 16,
                       fontWeight: "600",
                     }}
@@ -229,7 +268,7 @@ export function NumberBox({
                 width: "100%",
                 maxWidth: 360,
                 borderRadius: 14,
-                backgroundColor: "#ffffff",
+                backgroundColor: colors.androidCard,
                 overflow: "hidden",
               }}
               onPress={() => {
@@ -239,7 +278,7 @@ export function NumberBox({
               <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
                 <Text
                   style={{
-                    color: "#8e8e93",
+                    color: colors.title,
                     fontSize: 13,
                     fontWeight: "600",
                   }}
@@ -268,21 +307,23 @@ export function NumberBox({
                       } else {
                         onWeightUnitChange(option.value as WeightUnit);
                       }
-                      setActiveSelector(null);
+                      closeSelector();
                     }}
                     style={{
                       paddingHorizontal: 16,
                       paddingVertical: 14,
                       borderTopWidth: 1,
-                      borderTopColor: "#efeff4",
-                      backgroundColor: isSelected ? "#f3f4f8" : "#ffffff",
+                      borderTopColor: colors.rowDivider,
+                      backgroundColor: isSelected
+                        ? colors.rowSelectedBg
+                        : colors.rowBg,
                     }}
                   >
                     <Text
                       style={{
                         fontSize: 16,
                         fontWeight: isSelected ? "700" : "500",
-                        color: "#1c1c1e",
+                        color: colors.rowText,
                       }}
                     >
                       {option.label}
@@ -292,19 +333,19 @@ export function NumberBox({
               })}
 
               <Pressable
-                onPress={() => setActiveSelector(null)}
+                onPress={closeSelector}
                 style={{
                   paddingHorizontal: 16,
                   paddingVertical: 14,
                   borderTopWidth: 1,
-                  borderTopColor: "#efeff4",
+                  borderTopColor: colors.rowDivider,
                 }}
               >
                 <Text
                   style={{
                     fontSize: 16,
                     fontWeight: "600",
-                    color: "#007aff",
+                    color: colors.accent,
                   }}
                 >
                   Cancel

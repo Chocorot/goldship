@@ -49,13 +49,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 async function fetchJson(url: string, label: string): Promise<unknown> {
+  return fetchJsonWithInit(url, label);
+}
+
+async function fetchJsonWithInit(
+  url: string,
+  label: string,
+  init?: RequestInit,
+): Promise<unknown> {
   const requestUrls = resolveRequestUrls(url);
 
   try {
     let latestError: Error | null = null;
 
     for (const requestUrl of requestUrls) {
-      const response = await fetch(requestUrl);
+      const response = await fetch(requestUrl, init);
 
       if (response.ok) {
         return response.json();
@@ -78,6 +86,102 @@ async function fetchJson(url: string, label: string): Promise<unknown> {
 
     throw error;
   }
+}
+
+function toNumeric(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.replace(/,/g, "").trim();
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function extractRateAndUnit(
+  node: unknown,
+): { rate: number; unit?: number } | null {
+  if (!isRecord(node)) {
+    return null;
+  }
+
+  const directRateKeys = [
+    "middle_rate",
+    "middleRate",
+    "selling_rate",
+    "buying_rate",
+    "exchange_rate",
+    "value",
+    "rate",
+  ];
+
+  for (const key of directRateKeys) {
+    const value = toNumeric(node[key]);
+    if (value !== null) {
+      const unit = toNumeric(node.unit) ?? undefined;
+      return { rate: value, unit };
+    }
+  }
+
+  if (isRecord(node.rate)) {
+    const nested = extractRateAndUnit(node.rate);
+    if (nested) {
+      const unit = toNumeric(node.unit) ?? nested.unit;
+      return { rate: nested.rate, unit };
+    }
+  }
+
+  return null;
+}
+
+function findUsdRecord(payload: unknown): unknown {
+  if (Array.isArray(payload)) {
+    const usdItem = payload.find(
+      (item) =>
+        isRecord(item) &&
+        typeof item.currency_code === "string" &&
+        item.currency_code.toUpperCase() === "USD",
+    );
+    return usdItem ?? payload[0];
+  }
+
+  if (isRecord(payload)) {
+    return payload;
+  }
+
+  return null;
+}
+
+function normalizePerUsd(rate: number, unit?: number): number {
+  if (typeof unit === "number" && Number.isFinite(unit) && unit > 0) {
+    return rate / unit;
+  }
+
+  return rate;
+}
+
+export async function fetchUsdToMyrRate(): Promise<number> {
+  const endpoint =
+    "https://api.bnm.gov.my/public/exchange-rate/usd?session=0900&quote=rm";
+  const data = await fetchJsonWithInit(endpoint, "BNM exchange rate", {
+    headers: {
+      Accept: "application/vnd.BNM.API.v1+json",
+    },
+  });
+
+  const root = isRecord(data) && "data" in data ? data.data : data;
+  const candidate = findUsdRecord(root);
+  const extracted = extractRateAndUnit(candidate);
+
+  if (!extracted) {
+    throw new Error("BNM response did not contain a usable USD/MYR rate");
+  }
+
+  return normalizePerUsd(extracted.rate, extracted.unit);
 }
 
 export async function fetchLatestGoldPrice(endpoint: string): Promise<number> {

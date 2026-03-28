@@ -5,6 +5,7 @@ import {
   Platform,
   Text,
   View,
+  useColorScheme,
 } from "react-native";
 import {
   Circle,
@@ -35,7 +36,8 @@ const MAX_POINTS = 60;
 // SVG_HEIGHT is fixed; width is measured dynamically from the container
 const SVG_HEIGHT = 200;
 const LEFT = 8;
-const RIGHT = 54; // room for y-axis price labels on the right
+const MIN_RIGHT_GUTTER = 24;
+const Y_LABEL_FONT_SIZE = 14;
 const TOP = 8;
 const BOTTOM = 28;
 const DRAW_H = SVG_HEIGHT - TOP - BOTTOM;
@@ -149,6 +151,22 @@ function fmtTooltip(ts: number): string {
   return `${mo}/${dd}  ${hh}:${mm}`;
 }
 
+function fmtPrice(value: number, maximumFractionDigits = 2): string {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  });
+}
+
+function getRightGutterForLabels(labels: string[]): number {
+  const maxChars = labels.reduce(
+    (max, label) => Math.max(max, label.length),
+    0,
+  );
+  const estimatedTextWidth = maxChars * (Y_LABEL_FONT_SIZE * 0.62);
+  return Math.ceil(Math.max(MIN_RIGHT_GUTTER, estimatedTextWidth + 0));
+}
+
 function getTimeZoneOffsetMinutes(timestamp: number, timeZone: string): number {
   const dtf = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -251,6 +269,20 @@ export function GoldPriceChart({
   onInteractionStart,
   onInteractionEnd,
 }: GoldPriceChartProps) {
+  const isDark = useColorScheme() === "dark";
+  const colors = {
+    brand: "#f5c542",
+    spinner: isDark ? "#9aa3b2" : "#9f9f9f",
+    mutedText: isDark ? "#909aab" : "rgba(127, 127, 127, 0.8)",
+    tooltipSubtext: isDark ? "#9aa3b2" : "#9f9f9f",
+    tickText: isDark ? "#8b97ac" : "#7f7f7f",
+    xTick: isDark ? "#838ea2" : "#9f9f9f",
+    grid: isDark ? "#8a6b16" : "#d4a017",
+    axis: isDark ? "#8a6b16" : "#d4a017",
+    prevClose: isDark ? "#8e98ad" : "#6f6f6f",
+    pointOutline: isDark ? "#11141b" : "#fff",
+  };
+
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   // containerWidth drives re-render so SVG viewBox always matches the real layout width
   const [containerWidth, setContainerWidth] = useState(0);
@@ -352,7 +384,7 @@ export function GoldPriceChart({
               alignItems: "center",
             }}
           >
-            <ActivityIndicator size="small" color="#9f9f9f" />
+            <ActivityIndicator size="small" color={colors.spinner} />
           </View>
         </View>
       );
@@ -385,7 +417,7 @@ export function GoldPriceChart({
             alignItems: "center",
           }}
         >
-          <Text style={{ color: "rgba(127, 127, 127, 0.8)" }}>
+          <Text style={{ color: colors.mutedText }}>
             No history data available yet.
           </Text>
         </View>
@@ -409,6 +441,13 @@ export function GoldPriceChart({
   const paddedMin = min - padding;
   const paddedMax = max + padding;
   const span = paddedMax - paddedMin || 1;
+  const Y_TICKS = 4;
+  const yTickLabels = Array.from({ length: Y_TICKS }, (_, i) => {
+    const ratio = i / (Y_TICKS - 1);
+    const price = paddedMin + ratio * span;
+    return fmtPrice(price, 0);
+  });
+  const rightGutter = getRightGutterForLabels(yTickLabels);
 
   const tsFirst = sampled[0].timestamp;
   const tsLast = sampled[sampled.length - 1].timestamp;
@@ -419,7 +458,7 @@ export function GoldPriceChart({
   // Use the measured width; fall back to 320 only before first layout so the chart
   // renders immediately and then snaps to the real size.
   const svgW = containerWidth > 0 ? containerWidth : 320;
-  const drawW = svgW - LEFT - RIGHT;
+  const drawW = svgW - LEFT - rightGutter;
 
   const toXFromTimestamp = (timestamp: number) => {
     if (sampled.length === 1) {
@@ -455,11 +494,11 @@ export function GoldPriceChart({
     ` L ${pts[pts.length - 1].x} ${TOP + DRAW_H}` +
     ` L ${pts[0].x} ${TOP + DRAW_H} Z`;
 
-  const Y_TICKS = 4;
   const yTicks = Array.from({ length: Y_TICKS }, (_, i) => {
-    const ratio = i / (Y_TICKS - 1);
-    const price = paddedMin + ratio * span;
-    return { y: toY(price), label: `$${price.toFixed(0)}` };
+    return {
+      y: toY(paddedMin + (i / (Y_TICKS - 1)) * span),
+      label: yTickLabels[i],
+    };
   });
 
   const X_TICKS = 4;
@@ -499,10 +538,12 @@ export function GoldPriceChart({
       >
         {activePoint ? (
           <View style={{ alignItems: "flex-end" }}>
-            <Text style={{ fontSize: 14, color: "#f5c542", fontWeight: "700" }}>
-              ${activePoint.price.toFixed(2)}
+            <Text
+              style={{ fontSize: 14, color: colors.brand, fontWeight: "700" }}
+            >
+              {fmtPrice(activePoint.price, 2)}
             </Text>
-            <Text style={{ fontSize: 11, color: "#9f9f9f" }}>
+            <Text style={{ fontSize: 11, color: colors.tooltipSubtext }}>
               {fmtTooltip(activePoint.timestamp)}
             </Text>
           </View>
@@ -531,8 +572,8 @@ export function GoldPriceChart({
         >
           <Defs>
             <LinearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor="#f5c542" stopOpacity="0.30" />
-              <Stop offset="100%" stopColor="#f5c542" stopOpacity="0" />
+              <Stop offset="0%" stopColor={colors.brand} stopOpacity="0.30" />
+              <Stop offset="100%" stopColor={colors.brand} stopOpacity="0" />
             </LinearGradient>
           </Defs>
 
@@ -542,9 +583,9 @@ export function GoldPriceChart({
               key={`y-${i}`}
               x1={LEFT}
               y1={tick.y}
-              x2={svgW - RIGHT}
+              x2={svgW - rightGutter}
               y2={tick.y}
-              stroke="#d4a017"
+              stroke={colors.grid}
               strokeWidth="0.5"
               strokeDasharray="4 4"
               strokeOpacity="0.4"
@@ -558,7 +599,7 @@ export function GoldPriceChart({
           <Path
             d={linePath}
             fill="none"
-            stroke="#f5c542"
+            stroke={colors.brand}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -570,9 +611,9 @@ export function GoldPriceChart({
               <Line
                 x1={LEFT}
                 y1={toY(previousClose)}
-                x2={svgW - RIGHT}
+                x2={svgW - rightGutter}
                 y2={toY(previousClose)}
-                stroke="#6f6f6f"
+                stroke={colors.prevClose}
                 strokeWidth="1"
                 strokeDasharray="3 3"
                 strokeOpacity="0.9"
@@ -581,10 +622,10 @@ export function GoldPriceChart({
                 x={LEFT + 4}
                 y={toY(previousClose) - 4}
                 fontSize="11"
-                fill="#6f6f6f"
+                fill={colors.prevClose}
                 textAnchor="start"
               >
-                Prev close ${previousClose.toFixed(2)}
+                {`Prev close ${fmtPrice(previousClose, 2)}`}
               </SvgText>
             </>
           )}
@@ -597,7 +638,7 @@ export function GoldPriceChart({
                 y1={TOP}
                 x2={pts[activeIdx].x}
                 y2={TOP + DRAW_H}
-                stroke="#f5c542"
+                stroke={colors.brand}
                 strokeWidth="1"
                 strokeDasharray="4 3"
                 strokeOpacity="0.9"
@@ -606,8 +647,8 @@ export function GoldPriceChart({
                 cx={pts[activeIdx].x}
                 cy={pts[activeIdx].y}
                 r={4}
-                fill="#f5c542"
-                stroke="#fff"
+                fill={colors.brand}
+                stroke={colors.pointOutline}
                 strokeWidth="1.5"
               />
             </>
@@ -621,7 +662,7 @@ export function GoldPriceChart({
               y1={TOP + DRAW_H}
               x2={tick.x}
               y2={TOP + DRAW_H + 4}
-              stroke="#9f9f9f"
+              stroke={colors.xTick}
               strokeWidth="1"
             />
           ))}
@@ -633,7 +674,7 @@ export function GoldPriceChart({
               x={tick.x}
               y={SVG_HEIGHT - 6}
               fontSize="14"
-              fill="#7f7f7f"
+              fill={colors.tickText}
               textAnchor="start"
             >
               {tick.label}
@@ -641,26 +682,28 @@ export function GoldPriceChart({
           ))}
 
           {/* Y-axis price labels (right side) */}
-          {yTicks.map((tick, i) => (
-            <SvgText
-              key={`y-label-${i}`}
-              x={svgW - RIGHT + 4}
-              y={tick.y + 3.5}
-              fontSize="14"
-              fill="#7f7f7f"
-              textAnchor="start"
-            >
-              {tick.label}
-            </SvgText>
-          ))}
+          {yTicks.map((tick, i) =>
+            i === 0 ? null : (
+              <SvgText
+                key={`y-label-${i}`}
+                x={svgW}
+                y={tick.y + 11}
+                fontSize="14"
+                fill={colors.tickText}
+                textAnchor="end"
+              >
+                {tick.label}
+              </SvgText>
+            ),
+          )}
 
           {/* Right Y-axis rule */}
           <Line
-            x1={svgW - RIGHT}
+            x1={svgW - rightGutter}
             y1={TOP}
-            x2={svgW - RIGHT}
+            x2={svgW - rightGutter}
             y2={TOP + DRAW_H}
-            stroke="#d4a017"
+            stroke={colors.axis}
             strokeWidth="1"
             strokeOpacity="0.5"
           />
@@ -668,9 +711,9 @@ export function GoldPriceChart({
           <Line
             x1={LEFT}
             y1={TOP + DRAW_H}
-            x2={svgW - RIGHT}
+            x2={svgW - rightGutter}
             y2={TOP + DRAW_H}
-            stroke="#d4a017"
+            stroke={colors.axis}
             strokeWidth="1"
             strokeOpacity="0.5"
           />

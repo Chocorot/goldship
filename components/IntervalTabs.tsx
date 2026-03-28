@@ -1,4 +1,10 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  useColorScheme,
+} from "react-native";
 
 export type TimeInterval =
   | "1h"
@@ -37,6 +43,14 @@ const INTERVAL_OPTIONS: { value: TimeInterval; label: string }[] = [
 ];
 
 export function IntervalTabs({ value, onChange }: IntervalTabsProps) {
+  const isDark = useColorScheme() === "dark";
+  const colors = {
+    groupBg: isDark ? "#161b24" : "#ebebf0",
+    activeBg: isDark ? "#f6f6f8" : "#1c1c1e",
+    activeText: isDark ? "#0f1217" : "#ffffff",
+    inactiveText: isDark ? "#9aa3b2" : "#5a5a62",
+  };
+
   return (
     <View
       style={{
@@ -49,7 +63,7 @@ export function IntervalTabs({ value, onChange }: IntervalTabsProps) {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          backgroundColor: "#ebebf0",
+          backgroundColor: colors.groupBg,
           borderRadius: 999,
           padding: 4,
           gap: 6,
@@ -65,14 +79,14 @@ export function IntervalTabs({ value, onChange }: IntervalTabsProps) {
                 paddingHorizontal: 14,
                 paddingVertical: 8,
                 borderRadius: 999,
-                backgroundColor: isActive ? "#1c1c1e" : "transparent",
+                backgroundColor: isActive ? colors.activeBg : "transparent",
               }}
             >
               <Text
                 style={{
                   fontSize: 13,
                   fontWeight: "700",
-                  color: isActive ? "#ffffff" : "#5a5a62",
+                  color: isActive ? colors.activeText : colors.inactiveText,
                 }}
               >
                 {option.label}

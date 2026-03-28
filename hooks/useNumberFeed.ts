@@ -3,10 +3,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
     fetchGoldHistory,
     fetchGoldTradingDay,
+    fetchLatestGoldPrice,
     GoldHistorySeries,
 } from "@/services/numberApi";
 
 type UseNumberFeedOptions = {
+  latestEndpoint?: string;
   historyEndpoint: string;
   tradingDayEndpoint?: string;
   wsEndpoint: string;
@@ -15,6 +17,7 @@ type UseNumberFeedOptions = {
 };
 
 export function useNumberFeed({
+  latestEndpoint,
   historyEndpoint,
   tradingDayEndpoint,
   wsEndpoint,
@@ -81,10 +84,7 @@ export function useNumberFeed({
 
   useEffect(() => {
     load();
-    const intervalId = setInterval(load, refreshIntervalMs);
-
-    return () => clearInterval(intervalId);
-  }, [load, refreshIntervalMs]);
+  }, [load]);
 
   useEffect(() => {
     if (!wsEndpoint) {
@@ -125,7 +125,7 @@ export function useNumberFeed({
               return;
             }
 
-            setValue(msg.price);
+            setValue((prev) => (prev === msg.price ? prev : msg.price));
           } catch {
             // Ignore malformed websocket payloads.
           }
@@ -168,6 +168,35 @@ export function useNumberFeed({
       }
     };
   }, [wsEndpoint]);
+
+  useEffect(() => {
+    if (!latestEndpoint || isLive) {
+      return;
+    }
+
+    let isDisposed = false;
+
+    const loadLatest = async () => {
+      try {
+        const latest = await fetchLatestGoldPrice(latestEndpoint);
+        if (isDisposed) {
+          return;
+        }
+
+        setValue((prev) => (prev === latest ? prev : latest));
+      } catch {
+        // Keep the last value when fallback endpoint is temporarily unavailable.
+      }
+    };
+
+    loadLatest();
+    const intervalId = setInterval(loadLatest, refreshIntervalMs);
+
+    return () => {
+      isDisposed = true;
+      clearInterval(intervalId);
+    };
+  }, [isLive, latestEndpoint, refreshIntervalMs]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);

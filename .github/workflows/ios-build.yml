@@ -1,0 +1,37 @@
+name: Build iOS IPA
+on: [workflow_dispatch] # Allows you to start it manually
+
+jobs:
+  build:
+    runs-on: macos-latest # This is the "Free Mac" provided by GitHub
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Expo Prebuild
+        run: npx expo prebuild --platform ios
+
+      - name: Build Unsigned IPA
+        run: |
+          xcodebuild -workspace ios/*.xcworkspace \
+            -scheme $(ls ios/*.xcworkspace | xargs basename -s .xcworkspace) \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            archive -archivePath ./build.xcarchive
+
+          mkdir -p Payload
+          cp -r ./build.xcarchive/Products/Applications/*.app ./Payload
+          zip -r app.ipa Payload
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-native-app
+          path: app.ipa
