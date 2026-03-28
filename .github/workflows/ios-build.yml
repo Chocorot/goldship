@@ -18,14 +18,23 @@ jobs:
 
       - name: Build Unsigned IPA
         run: |
-          xcodebuild -workspace ios/*.xcworkspace \
-            -scheme $(ls ios/*.xcworkspace | xargs basename -s .xcworkspace) \
+          # 1. Correctly identify the workspace and scheme name
+          WORKSPACE=$(ls -d ios/*.xcworkspace)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+
+          echo "Building Workspace: $WORKSPACE"
+          echo "Detected Scheme: $SCHEME"
+
+          # 2. Run the build using the detected scheme
+          xcodebuild -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             archive -archivePath ./build.xcarchive
 
+          # 3. Package the .app into a .ipa file
           mkdir -p Payload
           cp -r ./build.xcarchive/Products/Applications/*.app ./Payload
           zip -r app.ipa Payload
