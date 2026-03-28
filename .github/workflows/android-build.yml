@@ -1,0 +1,44 @@
+name: Build Android APK
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17" # Android builds require Java 17
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Expo Prebuild
+        run: npx expo prebuild --platform android
+
+      - name: Build Debug APK
+        # Inject your secrets here
+        env:
+          EXPO_PUBLIC_GOLD_API_LATEST: ${{ secrets.EXPO_PUBLIC_GOLD_API_LATEST }}
+          EXPO_PUBLIC_GOLD_API_HISTORY: ${{ secrets.EXPO_PUBLIC_GOLD_API_HISTORY }}
+          EXPO_PUBLIC_GOLD_API_WS: ${{ secrets.EXPO_PUBLIC_GOLD_API_WS }}
+          EXPO_PUBLIC_WEB_CORS_PROXY: ${{ secrets.EXPO_PUBLIC_WEB_CORS_PROXY }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: goldship-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
