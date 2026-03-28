@@ -17,6 +17,11 @@ jobs:
         run: npx expo prebuild --platform ios
 
       - name: Build Unsigned IPA
+        env:
+          EXPO_PUBLIC_GOLD_API_LATEST: ${{ secrets.EXPO_PUBLIC_GOLD_API_LATEST }}
+          EXPO_PUBLIC_GOLD_API_HISTORY: ${{ secrets.EXPO_PUBLIC_GOLD_API_HISTORY }}
+          EXPO_PUBLIC_GOLD_API_WS: ${{ secrets.EXPO_PUBLIC_GOLD_API_WS }}
+          EXPO_PUBLIC_WEB_CORS_PROXY: ${{ secrets.EXPO_PUBLIC_WEB_CORS_PROXY }}
         run: |
           # 1. Correctly identify the workspace and scheme name
           WORKSPACE=$(ls -d ios/*.xcworkspace)
